@@ -1,0 +1,133 @@
+version: "2.0"
+project: "Gakumas-Emotion-Dynamics-Pipeline"
+execution_engine: "antigravity-multi-agent-runtime"
+
+# グローバルガバナンス・セキュリティ設定
+governance:
+  unsupervised_mode: true
+  dual_channel_policy:
+    primary: "@gakumasuhokannko"
+    fallback: "@学Pといっしょ"
+  security:
+    purge_raw_text: true
+    git_ignore_intermediate: true
+    path_abstraction: "relative"
+
+# エージェント別のロール・権限スコープ定義
+agents:
+  - role: "ui_layer_agent"
+    permissions:
+      write_scope: "src/layers/ui/"
+      read_scope: ["src/layers/ui/", "data/raw/"]
+      restricted: ["src/layers/multimodal/"]
+  - role: "multimodal_layer_agent"
+    permissions:
+      write_scope: "src/layers/multimodal/"
+      read_scope: ["src/layers/multimodal/", "data/raw/"]
+      restricted: ["src/layers/ui/"]
+  - role: "fusion_master_agent"
+    permissions:
+      write_scope: ["src/fusion/", "output/"]
+      read_scope: ["src/layers/ui/", "src/layers/multimodal/"]
+
+# 実行フェーズとステージの定義（依存関係に基づく順次・並列フロー）
+pipeline_stages:
+
+  # --- フェーズ1：完全教師なし構造化・セグメント生成ストリーム ---
+  - phase: 1
+    name: "Unsupervised Structural Segmentation"
+    execution_mode: "sequential"
+    steps:
+      - id: "1-A"
+        name: "Integrated Master Selection & Pre-cleaning"
+        agent: "fusion_master_agent"
+        validation_schema: "schemas/stage_1a.json"
+      - id: "1-B"
+        name: "3-Tier Multi-scale Tree Construction"
+        agent: "fusion_master_agent"
+        validation_schema: "schemas/stage_1b.json"
+      - id: "1-C"
+        name: "Cast Roster Normalization"
+        agent: "fusion_master_agent"
+        validation_schema: "schemas/stage_1c.json"
+      - id: "1-D"
+        name: "Dialogue Skeleton Integration"
+        agent: "ui_layer_agent"
+        validation_schema: "schemas/stage_1d.json"
+      - id: "1-E"
+        name: "Unsupervised Multi-tier Grouping"
+        agent: "fusion_master_agent"
+        validation_schema: "schemas/stage_1e.json"
+      - id: "1-F"
+        name: "Selective OCR, Auto-Calibration & UI Text Extraction"
+        agent: "ui_layer_agent"
+        validation_schema: "schemas/stage_1f.json"
+      - id: "1-G"
+        name: "Structured Master JSON Generation"
+        agent: "fusion_master_agent"
+        validation_schema: "schemas/master_json.json"
+
+  # --- フェーズ2：物理検証・統合・制御レイヤー ---
+  - phase: 2
+    name: "Physical Validation & Dual-Layer Integration"
+    execution_mode: "parallel_split_merge" # ui_layer と multimodal_layer を並列処理し統合
+    steps:
+      - id: "2-A"
+        name: "Prior Confidence Monitoring & Tempo Audit"
+        agent: "fusion_master_agent"
+        validation_schema: "schemas/stage_2a.json"
+      - id: "2-B"
+        name: "Multimodal Physical Validation & Occlusion Correction"
+        parallel_branches:
+          - branch: "ui_processing"
+            agent: "ui_layer_agent"
+            tasks: ["extract_metadata", "validate_text_sync"]
+          - branch: "multimodal_processing"
+            agent: "multimodal_layer_agent"
+            tasks: ["apply_inpaint", "apply_one_euro_filter", "extract_features"]
+        validation_schema: "schemas/stage_2b.json"
+      - id: "2-C"
+        name: "Physical Validation Data Integration"
+        agent: "fusion_master_agent"
+        validation_schema: "schemas/stage_2c.json"
+      - id: "2-D"
+        name: "Automatic Metadata Override & Correction"
+        agent: "fusion_master_agent"
+        validation_schema: "schemas/stage_2d.json"
+      - id: "2-E"
+        name: "Analysis Input Schema Alignment"
+        agent: "fusion_master_agent"
+        validation_schema: "schemas/stage_2e.json"
+
+  # --- フェーズ3：高度分析レイヤー ---
+  - phase: 3
+    name: "Advanced Analysis & Cross-Attention Fusion"
+    execution_mode: "sequential"
+    steps:
+      - id: "3-A"
+        name: "Query Pattern Exhaustive Extraction"
+        agent: "ui_layer_agent"
+        validation_schema: "schemas/stage_3a.json"
+      - id: "3-B"
+        name: "Multi-scale Gradation Analysis"
+        agent: "fusion_master_agent"
+        validation_schema: "schemas/stage_3b.json"
+      - id: "3-C"
+        name: "Emotion Dynamics & Interaction Analysis (Cross-Attention Model)"
+        agent: "fusion_master_agent"
+        model_weights: "models/cross_attention_fusion_v1.pth"
+        validation_schema: "schemas/stage_3c.json"
+      - id: "3-D"
+        name: "Artifact Cleansing & Metadata Output"
+        agent: "fusion_master_agent"
+        output_target: "output/completion.json"
+        validation_schema: "schemas/completion.json"
+
+# 例外処理・フェイルセーフ・枝刈りプロトコル
+runtime_protocols:
+  context_pruning:
+    trigger: "on_stage_complete"
+    action: "purge_debug_logs_and_intermediate_frames"
+  error_handling:
+    on_exception: "halt_and_escalate"
+    escalation_format: "[ERROR] Stage: {stage_id} | Reason: {specific_cause} | Action: Halted for review"
